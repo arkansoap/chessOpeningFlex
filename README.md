@@ -74,3 +74,12 @@ python -m pytest
 - **Backend** : fonctionnel (modèles, services chess.com/analyse/répertoire/entraînement, endpoints API, tests).
 - **Frontend** : squelette compilable (structure, routing, client API typé, pages/composants en placeholder).
 - **À venir** : composants UI interactifs (échiquier, uploader, arborescence, entraînement, stats), migrations Alembic, CI/CD.
+
+## Roadmap
+
+- [ ] Composants UI interactifs (react-chessboard, uploader PGN, arborescence du répertoire)
+- [ ] Page d'entraînement complète (modes aléatoire / enchaîné / variante complète)
+- [ ] Tableau de bord statistiques (recharts)
+- [ ] Migrations Alembic
+- [ ] CI/CD (build frontend + tests backend)
+
