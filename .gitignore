@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+*.egg-info/
+.pytest_cache/
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Data
+data/*.db
+data/*.sqlite3
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+
+# Env
+.env
+.env.local
+
+# Editors
+.vscode/
+.idea/
+.DS_Store
+
+# Build
+*.log
