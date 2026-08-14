@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { analysis } from "../../services/api";
 import type { VariantExtracted } from "../../types";
-import ChessBoard from "../ChessBoard/ChessBoard";
+import VariantPlayer from "../ChessBoard/VariantPlayer";
 
 export interface VariantAnalyzerProps {
   /** PGN to analyze. When provided, the analysis runs automatically. */
@@ -60,13 +60,10 @@ export default function VariantAnalyzer({
       {variants.length > 0 && (
         <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap" }}>
           <div>
-            <ChessBoard
-              fen={selected?.starting_position}
-              interactive={false}
+            <VariantPlayer
+              moves={selected?.moves ?? ""}
+              startingFen={selected?.starting_position}
             />
-            <p style={{ fontFamily: "monospace" }}>
-              {selected?.moves || "—"}
-            </p>
             {selected?.eco_code && (
               <p>ECO : {selected.eco_code}</p>
             )}

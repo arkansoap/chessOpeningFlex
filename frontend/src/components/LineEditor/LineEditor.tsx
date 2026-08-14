@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import ChessBoard from "../ChessBoard/ChessBoard";
+import VariantPlayer from "../ChessBoard/VariantPlayer";
 import { repertoire as repertoireApi } from "../../services/api";
 import type { RepertoireLine } from "../../types";
 
@@ -66,8 +66,7 @@ export default function LineEditor({
   return (
     <div className="line-editor" style={{ display: "flex", gap: "2rem", flexWrap: "wrap" }}>
       <div>
-        <ChessBoard fen={line.starting_position} interactive={false} />
-        <p style={{ fontFamily: "monospace" }}>{displayMoves || "—"}</p>
+        <VariantPlayer moves={displayMoves} startingFen={line.starting_position} />
       </div>
 
       <div style={{ flex: 1, minWidth: 280 }}>
