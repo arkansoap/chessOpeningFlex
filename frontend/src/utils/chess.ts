@@ -17,7 +17,7 @@ export function toChessboardPosition(
         const file = "abcdefgh"[fileIndex];
         const rank = 8 - rankIndex;
         const square = `${file}${rank}` as Square;
-        position[square] = `${piece.color}${piece.type}`;
+        position[square] = `${piece.color}${piece.type.toUpperCase()}`;  // react-chessboard expects uppercase piece types
       }
     }
   }
