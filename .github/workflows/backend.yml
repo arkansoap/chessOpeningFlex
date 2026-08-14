@@ -27,5 +27,13 @@ jobs:
           pip install -r requirements.txt
           pip install pytest httpx
 
+      - name: Apply Alembic migrations (smoke check)
+        env:
+          DATABASE_URL: sqlite:///test_migrations.db
+        run: |
+          alembic upgrade head
+          alembic downgrade base
+          alembic upgrade head
+
       - name: Run tests
         run: python -m pytest -q
