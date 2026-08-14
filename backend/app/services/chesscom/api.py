@@ -18,14 +18,20 @@ class ChesscomError(Exception):
 class ChesscomClient:
     """Thin wrapper around the chess.com public API."""
 
+    # chess.com requires a User-Agent header on all requests, otherwise it
+    # responds with 403 Forbidden. We set it once on a shared session.
+    USER_AGENT = "ChessOpeningFlex/0.1 (https://github.com/arkansoap/chessOpeningFlex)"
+
     def __init__(self, base_url: str | None = None, timeout: int = 30) -> None:
         self.base_url = (base_url or settings.chesscom_api_base).rstrip("/")
         self.timeout = timeout
+        self.session = requests.Session()
+        self.session.headers.update({"User-Agent": self.USER_AGENT})
 
     def _get(self, path: str) -> Any:
         url = f"{self.base_url}/{path.lstrip('/')}"
         try:
-            resp = requests.get(url, timeout=self.timeout)
+            resp = self.session.get(url, timeout=self.timeout)
             resp.raise_for_status()
             return resp.json()
         except requests.RequestException as exc:  # pragma: no cover - network
@@ -40,7 +46,7 @@ class ChesscomClient:
     def fetch_archive(self, archive_url: str) -> list[dict]:
         """Fetch the games for one monthly archive URL."""
         try:
-            resp = requests.get(archive_url, timeout=self.timeout)
+            resp = self.session.get(archive_url, timeout=self.timeout)
             resp.raise_for_status()
             data = resp.json()
         except requests.RequestException as exc:  # pragma: no cover - network
