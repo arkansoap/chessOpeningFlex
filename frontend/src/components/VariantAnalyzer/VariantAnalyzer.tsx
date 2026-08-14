@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { analysis } from "../../services/api";
 import type { VariantExtracted } from "../../types";
 import VariantPlayer from "../ChessBoard/VariantPlayer";
@@ -44,10 +44,19 @@ export default function VariantAnalyzer({
     }
   };
 
-  // Auto-run analysis when a new PGN is provided.
-  if (pgn && variants.length === 0 && !loading && !error) {
-    void runAnalysis(pgn);
-  }
+  // Re-run analysis whenever the PGN changes (e.g. when selecting another game
+  // from the import list). Skipped when initialVariants were passed directly.
+  useEffect(() => {
+    if (initialVariants) return;
+    if (pgn && pgn.trim()) {
+      void runAnalysis(pgn);
+    } else {
+      setVariants([]);
+    }
+    // runAnalysis is stable enough for our purposes; we intentionally only
+    // re-run when the pgn (or initialVariants) changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pgn, initialVariants]);
 
   const selected = variants[selectedIdx];
 
