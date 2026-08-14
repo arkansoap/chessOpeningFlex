@@ -69,18 +69,39 @@ cd backend
 python -m pytest
 ```
 
+## Migrations (Alembic)
+
+Le schéma de base de données est géré par Alembic. Les migrations s'appliquent
+automatiquement au démarrage de l'application (`run_migrations` dans le
+lifespan FastAPI), avec un repli sur `create_all` si Alembic n'est pas disponible.
+
+Commandes manuelles (depuis `backend/`) :
+
+```bash
+# Appliquer toutes les migrations en attente
+alembic upgrade head
+
+# Revenir à l'état précédent
+alembic downgrade -1
+
+# Générer une migration après modification des modèles
+alembic revision --autogenerate -m "description du changement"
+```
+
 ## Statut
 
-- **Backend** : fonctionnel (modèles, services chess.com/analyse/répertoire/entraînement, endpoints API, tests).
-- **Frontend** : squelette compilable (structure, routing, client API typé, pages/composants en placeholder).
-- **À venir** : composants UI interactifs (échiquier, uploader, arborescence, entraînement, stats), migrations Alembic, CI/CD.
+- **Backend** : fonctionnel (modèles, services chess.com/analyse/répertoire/entraînement, endpoints API, tests, migrations Alembic).
+- **Frontend** : composants UI interactifs implémentés (échiquier `react-chessboard` + `chess.js`, uploader PGN, import chess.com, analyseur de variantes, sélecteur de lignes, arborescence du répertoire, éditeur de lignes, mode entraînement, tableau de bord statistiques `recharts`).
+- **CI** : GitHub Actions (tests backend + migration, typecheck + build frontend).
+- **À venir** : tests frontend, optimisation du bundle frontend.
 
 ## Roadmap
 
 - [x] Composants UI interactifs (react-chessboard, uploader PGN, arborescence du répertoire)
 - [x] Page d'entraînement complète (modes aléatoire / enchaîné / variante complète)
 - [x] Tableau de bord statistiques (recharts)
-- [ ] Migrations Alembic
+- [x] Migrations Alembic
+- [x] CI/CD (build frontend + tests backend + check migration)
 - [ ] Tests frontend
-- [ ] CI/CD (build frontend + tests backend)
+- [ ] Optimisation du bundle frontend (code-splitting)
 

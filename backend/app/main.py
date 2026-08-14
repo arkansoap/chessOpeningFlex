@@ -9,8 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import api_router
 from app.core.config import ensure_data_dirs, settings
-from app.core.database import engine
-from app.core.models import Base
+from app.core.database import run_migrations
 from app.core.models import Color, GameSource, TrainingMode  # noqa: F401 - ensure enums imported
 
 logging.basicConfig(level=logging.INFO)
@@ -20,8 +19,8 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     ensure_data_dirs()
-    Base.metadata.create_all(bind=engine)
-    logger.info("Database tables ensured")
+    run_migrations()
+    logger.info("Database migrations applied")
     yield
 
 
