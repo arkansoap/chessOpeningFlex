@@ -77,9 +77,10 @@ python -m pytest
 
 ## Roadmap
 
-- [ ] Composants UI interactifs (react-chessboard, uploader PGN, arborescence du répertoire)
-- [ ] Page d'entraînement complète (modes aléatoire / enchaîné / variante complète)
-- [ ] Tableau de bord statistiques (recharts)
+- [x] Composants UI interactifs (react-chessboard, uploader PGN, arborescence du répertoire)
+- [x] Page d'entraînement complète (modes aléatoire / enchaîné / variante complète)
+- [x] Tableau de bord statistiques (recharts)
 - [ ] Migrations Alembic
+- [ ] Tests frontend
 - [ ] CI/CD (build frontend + tests backend)
 
