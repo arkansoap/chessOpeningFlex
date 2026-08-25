@@ -13,8 +13,22 @@ export interface EvalBarProps {
  * line list so the balance of the position is readable at a glance.
  */
 export default function EvalBar({ line, height = 420 }: EvalBarProps) {
-  const share = line ? scoreToWhiteShare(line) : 0.5;
-  const label = line ? formatScore(line) : "—";
+  // With no line to show, render a flat neutral bar: a half-and-half split
+  // would read as "the position is equal", which the engine has not said.
+  if (!line) {
+    return (
+      <div
+        className="eval-bar eval-bar--empty"
+        style={{ height }}
+        title="Aucune évaluation"
+        role="img"
+        aria-label="Aucune évaluation disponible"
+      />
+    );
+  }
+
+  const share = scoreToWhiteShare(line);
+  const label = formatScore(line);
   const whiteAhead = share >= 0.5;
 
   return (

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useChessEngine } from "../../hooks/useChessEngine";
 import { formatPv, formatScore } from "../../engine/uci";
 import EvalBar from "./EvalBar";
@@ -12,8 +12,21 @@ export interface EngineAnalysisProps {
   maxDepth?: number;
   /** Height of the evaluation bar; match the board's height. */
   height?: number;
-  /** Whether analysis is on when the component first mounts. */
+  /** Whether analysis is on the first time the user ever opens the panel. */
   defaultEnabled?: boolean;
+}
+
+/** Key under which the on/off choice is remembered between visits. */
+const STORAGE_KEY = "chessopeningflex.engine.enabled";
+
+function readStoredEnabled(fallback: boolean): boolean {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored === null ? fallback : stored === "true";
+  } catch {
+    // Private browsing and blocked site data both throw here.
+    return fallback;
+  }
 }
 
 /**
@@ -30,7 +43,17 @@ export default function EngineAnalysis({
   height = 420,
   defaultEnabled = true,
 }: EngineAnalysisProps) {
-  const [enabled, setEnabled] = useState(defaultEnabled);
+  // Remembered across visits: someone who turned the engine off to save
+  // battery should not find it running again on the next page.
+  const [enabled, setEnabled] = useState(() => readStoredEnabled(defaultEnabled));
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, String(enabled));
+    } catch {
+      // Not being able to remember the choice is not worth failing over.
+    }
+  }, [enabled]);
   const { lines, depth, nps, running, status, error, threaded } = useChessEngine({
     fen,
     enabled,
@@ -44,20 +67,26 @@ export default function EngineAnalysis({
   return (
     <section className="engine-analysis" aria-label="Analyse du moteur">
       <header className="engine-analysis__header">
-        <label className="engine-analysis__toggle">
-          <input
-            type="checkbox"
-            checked={enabled}
-            onChange={(e) => setEnabled(e.target.checked)}
-            disabled={unavailable}
-          />
-          Moteur
-        </label>
+        <button
+          type="button"
+          className={`engine-toggle${enabled ? " engine-toggle--on" : ""}`}
+          onClick={() => setEnabled((on) => !on)}
+          disabled={unavailable}
+          aria-pressed={enabled}
+          title={
+            enabled
+              ? "Arrêter l'analyse et libérer le moteur"
+              : "Lancer l'analyse de la position"
+          }
+        >
+          <span aria-hidden="true">{enabled ? "⏸" : "▶"}</span>
+          {enabled ? "Analyse activée" : "Activer l'analyse"}
+        </button>
         <span className="engine-analysis__meta">
           {unavailable
             ? "indisponible"
             : !enabled
-              ? "en pause"
+              ? "désactivée"
               : status === "loading"
                 ? "chargement…"
                 : `profondeur ${depth}/${maxDepth}${running ? " …" : ""}`}
@@ -83,7 +112,8 @@ export default function EngineAnalysis({
 
           {!unavailable && !enabled && (
             <li className="engine-lines__empty">
-              Analyse en pause. Cochez « Moteur » pour la relancer.
+              Analyse désactivée : le moteur est déchargé et ne consomme ni
+              processeur ni mémoire.
             </li>
           )}
 

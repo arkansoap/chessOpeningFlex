@@ -57,7 +57,18 @@ export function useChessEngine({
   useEffect(() => {
     wantedFen.current = enabled ? fen : null;
 
-    if (!enabled || !fen) {
+    if (!enabled) {
+      // Tear the worker down rather than just halting the search: stopping
+      // frees the CPU but leaves the ~7 MB of compiled WASM, the hash table
+      // and the engine threads resident. Turning the analysis off is meant to
+      // give those back. Re-enabling costs a WASM recompile of about a second.
+      engine.destroy();
+      setAnalysis(null);
+      setStatus((prev) => (prev === "unavailable" ? prev : "idle"));
+      return;
+    }
+
+    if (!fen) {
       engine.stop();
       setAnalysis(null);
       setStatus((prev) => (prev === "unavailable" ? prev : "idle"));
@@ -94,8 +105,9 @@ export function useChessEngine({
     };
   }, [engine, fen, enabled, multiPv, maxDepth, debounceMs]);
 
-  // Free the worker's memory when the last consumer goes away.
-  useEffect(() => () => engine.stop(), [engine]);
+  // Release the worker when the panel goes away, so navigating to another page
+  // does not leave an idle engine holding memory and threads.
+  useEffect(() => () => engine.destroy(), [engine]);
 
   return {
     lines: analysis?.lines ?? EMPTY,
