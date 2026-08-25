@@ -224,3 +224,7 @@ body {
 .variant-list__item--active {
   background: #dbeafe;
 }
+
+.engine-analysis__footer a {
+  color: inherit;
+}

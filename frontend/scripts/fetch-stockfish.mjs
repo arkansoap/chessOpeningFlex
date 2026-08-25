@@ -24,21 +24,41 @@ const VERSION = "18.0.8";
 
 /** Tried in order; some networks block one CDN but not the other. */
 const MIRRORS = [
-  `https://unpkg.com/stockfish@${VERSION}/bin`,
-  `https://cdn.jsdelivr.net/npm/stockfish@${VERSION}/bin`,
+  `https://unpkg.com/stockfish@${VERSION}`,
+  `https://cdn.jsdelivr.net/npm/stockfish@${VERSION}`,
 ];
 
-/** sha256 of each file as published in stockfish@18.0.8. */
-const FILES = {
-  "stockfish-18-lite-single.js":
-    "5243fd9b276cab7dfe3ad1d43ab9ead73568fac76468c614242977a210c4a391",
-  "stockfish-18-lite-single.wasm":
-    "a8fbc05ec6920b56d7485826dcb02c5ffd2826bcbf751cf973046f237a9096f1",
-  "stockfish-18-lite.js":
-    "6e64f417a642c2f2a27d33c09f069522366d1bc33ed7ee8712afcc347e109af4",
-  "stockfish-18-lite.wasm":
-    "d50136919dcd90e75eb8df78b255d47d618962b670028b38961343f6eb409174",
-};
+/**
+ * Path inside the published package -> sha256 of that file in stockfish@18.0.8.
+ * Each is written to public/stockfish/ under the name given as `saveAs`.
+ *
+ * The licence text ships alongside the binaries on purpose: Stockfish is
+ * GPL-3.0 and these files are served to every visitor, so the licence has to
+ * travel with them. See THIRD-PARTY.md at the repo root.
+ */
+const FILES = [
+  {
+    path: "bin/stockfish-18-lite-single.js",
+    sha256: "5243fd9b276cab7dfe3ad1d43ab9ead73568fac76468c614242977a210c4a391",
+  },
+  {
+    path: "bin/stockfish-18-lite-single.wasm",
+    sha256: "a8fbc05ec6920b56d7485826dcb02c5ffd2826bcbf751cf973046f237a9096f1",
+  },
+  {
+    path: "bin/stockfish-18-lite.js",
+    sha256: "6e64f417a642c2f2a27d33c09f069522366d1bc33ed7ee8712afcc347e109af4",
+  },
+  {
+    path: "bin/stockfish-18-lite.wasm",
+    sha256: "d50136919dcd90e75eb8df78b255d47d618962b670028b38961343f6eb409174",
+  },
+  {
+    path: "Copying.txt",
+    saveAs: "LICENSE.txt",
+    sha256: "0b383d5a63da644f628d99c33976ea6487ed89aaa59f0b3257992deac1171e6b",
+  },
+];
 
 const outDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -57,11 +77,11 @@ async function alreadyValid(dest, expected) {
   }
 }
 
-async function download(name) {
+async function download(relPath) {
   const failures = [];
   for (const base of MIRRORS) {
     try {
-      const res = await fetch(`${base}/${name}`);
+      const res = await fetch(`${base}/${relPath}`);
       if (!res.ok) {
         failures.push(`${base}: HTTP ${res.status} ${res.statusText}`);
         continue;
@@ -71,16 +91,19 @@ async function download(name) {
       failures.push(`${base}: ${err.message}`);
     }
   }
-  throw new Error(`${name} could not be downloaded\n    ${failures.join("\n    ")}`);
+  throw new Error(
+    `${relPath} could not be downloaded\n    ${failures.join("\n    ")}`
+  );
 }
 
-async function fetchOne(name, expected) {
+async function fetchOne({ path: relPath, saveAs, sha256: expected }) {
+  const name = saveAs ?? path.basename(relPath);
   const dest = path.join(outDir, name);
   if (await alreadyValid(dest, expected)) {
     console.log(`  ✓ ${name} (cached)`);
     return;
   }
-  const buf = await download(name);
+  const buf = await download(relPath);
   const got = sha256(buf);
   if (got !== expected) {
     throw new Error(
@@ -94,8 +117,8 @@ async function fetchOne(name, expected) {
 async function main() {
   await mkdir(outDir, { recursive: true });
   console.log(`Fetching Stockfish ${VERSION} into public/stockfish/`);
-  for (const [name, hash] of Object.entries(FILES)) {
-    await fetchOne(name, hash);
+  for (const file of FILES) {
+    await fetchOne(file);
   }
 }
 

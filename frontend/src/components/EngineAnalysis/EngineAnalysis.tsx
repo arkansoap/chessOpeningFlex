@@ -115,10 +115,23 @@ export default function EngineAnalysis({
         </ol>
       </div>
 
-      {!unavailable && enabled && (
+      {/* Attribution and licence link: the GPL-3.0 engine is served to every
+          visitor, so its notice travels with it. See THIRD-PARTY.md. */}
+      {!unavailable && (
         <footer className="engine-analysis__footer">
-          Stockfish 18 lite · {threaded ? "multi-thread" : "mono-thread"}
-          {nps ? ` · ${(nps / 1000).toFixed(0)} kN/s` : ""}
+          <a
+            href="https://github.com/official-stockfish/Stockfish"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Stockfish 18
+          </a>{" "}
+          lite (
+          <a href="/stockfish/LICENSE.txt" target="_blank" rel="noreferrer">
+            GPL-3.0
+          </a>
+          ) · {threaded ? "multi-thread" : "mono-thread"}
+          {enabled && nps ? ` · ${(nps / 1000).toFixed(0)} kN/s` : ""}
         </footer>
       )}
     </section>
