@@ -67,27 +67,16 @@ export default function VariantAnalyzer({
       {error && <p style={{ color: "#dc2626" }}>Erreur : {error}</p>}
 
       {variants.length > 0 && (
-        <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap" }}>
-          <div>
-            <VariantPlayer
-              moves={selected?.moves ?? ""}
-              startingFen={selected?.starting_position}
-            />
-            {selected?.eco_code && (
-              <p>ECO : {selected.eco_code}</p>
-            )}
-          </div>
-
-          <ul style={{ listStyle: "none", padding: 0 }}>
+        <div className="variant-analyzer__layout">
+          {/* The variant list stays a narrow column so the board and the
+              engine panel keep sitting side by side. */}
+          <ul className="variant-list">
             {variants.map((v, i) => (
               <li
                 key={i}
-                style={{
-                  cursor: "pointer",
-                  padding: "0.5rem",
-                  background: i === selectedIdx ? "#dbeafe" : "transparent",
-                  borderRadius: 4,
-                }}
+                className={`variant-list__item${
+                  i === selectedIdx ? " variant-list__item--active" : ""
+                }`}
                 onClick={() => setSelectedIdx(i)}
               >
                 {v.eco_code ? `[${v.eco_code}] ` : ""}
@@ -96,6 +85,14 @@ export default function VariantAnalyzer({
               </li>
             ))}
           </ul>
+
+          <div className="variant-analyzer__board">
+            <VariantPlayer
+              moves={selected?.moves ?? ""}
+              startingFen={selected?.starting_position}
+            />
+            {selected?.eco_code && <p>ECO : {selected.eco_code}</p>}
+          </div>
         </div>
       )}
 

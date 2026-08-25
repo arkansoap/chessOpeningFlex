@@ -20,3 +20,6 @@ tsconfig.tsbuildinfo
 *.tsbuildinfo
 vite.config.d.ts
 vite.config.js
+
+# Stockfish WASM engine, fetched by scripts/fetch-stockfish.mjs
+public/stockfish/

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Chessboard } from "react-chessboard";
 import { useChessGame } from "../../hooks/useChessGame";
+import EngineAnalysis from "../EngineAnalysis/EngineAnalysis";
 
 export interface VariantPlayerProps {
   /** Space-separated SAN moves, e.g. "e4 e5 Nf3 Nc6 Bb5" */
@@ -9,17 +10,28 @@ export interface VariantPlayerProps {
   startingFen?: string;
   /** Orientation of the board. */
   orientation?: "white" | "black";
+  /** Show the live engine evaluation next to the board. */
+  showEngine?: boolean;
+  /** Number of engine lines to display. */
+  engineLines?: number;
+  /** Depth at which the engine stops refining the position. */
+  engineDepth?: number;
 }
+
+/** Board edge length in pixels; the eval bar is sized to match. */
+const BOARD_SIZE = 420;
 
 /**
  * Read-only board that replays a variant move by move with prev/next controls.
- * Used to preview an extracted line on the board instead of just showing the
- * starting position.
+ * The engine panel beside it re-evaluates the position at every step.
  */
 export default function VariantPlayer({
   moves,
   startingFen,
   orientation = "white",
+  showEngine = true,
+  engineLines = 5,
+  engineDepth = 20,
 }: VariantPlayerProps) {
   const game = useChessGame(startingFen);
   const sanMoves = moves.split(" ").filter(Boolean);
@@ -58,12 +70,23 @@ export default function VariantPlayer({
 
   return (
     <div className="variant-player">
-      <div style={{ maxWidth: 420 }}>
-        <Chessboard
-          position={game.position}
-          arePiecesDraggable={false}
-          boardOrientation={orientation}
-        />
+      <div className="variant-player__row">
+        <div className="variant-player__board">
+          <Chessboard
+            position={game.position}
+            arePiecesDraggable={false}
+            boardOrientation={orientation}
+          />
+        </div>
+
+        {showEngine && (
+          <EngineAnalysis
+            fen={game.fen}
+            multiPv={engineLines}
+            maxDepth={engineDepth}
+            height={BOARD_SIZE}
+          />
+        )}
       </div>
 
       <div
