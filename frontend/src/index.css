@@ -260,3 +260,27 @@ body {
 .engine-analysis__footer a {
   color: inherit;
 }
+
+/* --- Repertoire picker + inline creation ------------------------------ */
+
+.repertoire-select__row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.repertoire-select__form {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  /* Hug the fields rather than stretching across the page. */
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 0.6rem;
+  padding: 0.75rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}

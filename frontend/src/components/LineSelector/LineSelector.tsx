@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { repertoire as repertoireApi } from "../../services/api";
-import type { Repertoire, VariantExtracted } from "../../types";
+import RepertoireSelect from "../RepertoireSelect/RepertoireSelect";
+import type { VariantExtracted } from "../../types";
 
 export interface LineSelectorProps {
   variant: VariantExtracted | null;
@@ -13,15 +14,10 @@ export interface LineSelectorProps {
  * depth (number of plies), then persist it as a repertoire line.
  */
 export default function LineSelector({ variant, onAdded }: LineSelectorProps) {
-  const [repertoires, setRepertoires] = useState<Repertoire[]>([]);
   const [repertoireId, setRepertoireId] = useState("");
   const [maxDepth, setMaxDepth] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    void repertoireApi.list().then(setRepertoires).catch(() => undefined);
-  }, []);
 
   useEffect(() => {
     if (variant) {
@@ -64,20 +60,14 @@ export default function LineSelector({ variant, onAdded }: LineSelectorProps) {
       <h3>Intégrer la ligne</h3>
       <p style={{ fontFamily: "monospace" }}>{trimmed || "—"}</p>
 
-      <label>
-        Répertoire cible&nbsp;
-        <select
-          value={repertoireId}
-          onChange={(e) => setRepertoireId(e.target.value)}
-        >
-          <option value="">— Choisir —</option>
-          {repertoires.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.name} ({r.color})
-            </option>
-          ))}
-        </select>
-      </label>
+      <RepertoireSelect
+        label="Répertoire cible"
+        value={repertoireId}
+        onChange={(id) => {
+          setRepertoireId(id);
+          setError(null);
+        }}
+      />
 
       <label>
         Profondeur (coups)&nbsp;
