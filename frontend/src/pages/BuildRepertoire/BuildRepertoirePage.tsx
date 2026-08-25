@@ -3,7 +3,7 @@ import ChessComImporter from "../../components/ChessComImporter/ChessComImporter
 import PgnUploader from "../../components/PgnUploader/PgnUploader";
 import VariantAnalyzer from "../../components/VariantAnalyzer/VariantAnalyzer";
 import LineSelector from "../../components/LineSelector/LineSelector";
-import type { ImportedGame, VariantExtracted } from "../../types";
+import type { Color, ImportedGame, VariantExtracted } from "../../types";
 
 type Step = "import" | "analyze" | "select";
 
@@ -19,6 +19,10 @@ export default function BuildRepertoirePage() {
   const [games, setGames] = useState<ImportedGame[]>([]);
   const [selectedGameIdx, setSelectedGameIdx] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState<VariantExtracted | null>(null);
+  // Side the repertoire is for. Chosen at the analysis step because it decides
+  // where the extracted line is cut, and carried on to the filing step so the
+  // target repertoire matches.
+  const [color, setColor] = useState<Color>("white");
 
   const handleImported = (imported: ImportedGame[]) => {
     setGames(imported);
@@ -80,6 +84,8 @@ export default function BuildRepertoirePage() {
 
           <VariantAnalyzer
             pgn={selectedGame?.pgn_data}
+            color={color}
+            onColorChange={setColor}
             onSelectVariant={(v) => {
               setSelectedVariant(v);
               setStep("select");
@@ -100,6 +106,7 @@ export default function BuildRepertoirePage() {
           )}
           <LineSelector
             variant={selectedVariant}
+            color={color}
             onAdded={() => {
               setSelectedVariant(null);
               setStep("import");

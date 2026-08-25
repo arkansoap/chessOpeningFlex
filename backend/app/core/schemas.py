@@ -1,6 +1,8 @@
 """Pydantic schemas for request/response validation."""
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -194,7 +196,8 @@ RepertoireDetailOut.model_rebuild()
 
 class AnalyzeVariantsIn(BaseModel):
     pgn: str
-    color: str = "white"  # which side's perspective to extract variants for
+    # Which side the repertoire is for; the extracted line ends on its move.
+    color: Literal["white", "black"] = "white"
     min_depth: int = 0
 
 

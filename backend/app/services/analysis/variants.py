@@ -52,21 +52,50 @@ def _normalize_pgn(pgn: str) -> str:
     return pgn
 
 
+VALID_COLORS = ("white", "black")
+
+
+def _truncate_to_own_move(san_moves: list[str], *, color: str, white_starts: bool) -> list[str]:
+    """Drop a trailing opponent move so the line ends on `color`'s own move.
+
+    A repertoire line teaches what *you* play, so it should close on your move:
+    a black line ending on a white move would leave the reply it exists to
+    teach unrecorded. At most one ply is ever removed.
+    """
+    wants_white = color == "white"
+    # Ply i is played by white when its index parity matches who starts.
+    def played_by_wanted_side(index: int) -> bool:
+        is_white_ply = (index % 2 == 0) == white_starts
+        return is_white_ply == wants_white
+
+    end = len(san_moves)
+    while end > 0 and not played_by_wanted_side(end - 1):
+        end -= 1
+    return san_moves[:end]
+
+
 def extract_variants(pgn: str, color: str = "white", min_depth: int = 0) -> list[ExtractedVariant]:
     """Extract the mainline move sequence of the game from the given player's
     perspective, up to and including their moves.
 
-    The extracted `moves` string is the SAN of the full line played, and the
-    `starting_position` is the standard initial position FEN.
+    `color` is the side the repertoire is built for: the returned line is
+    truncated so that it ends on that side's move. `min_depth` is checked
+    against the full mainline, before that truncation.
+
+    The `starting_position` is the standard initial position FEN.
 
     Only one variant per game is extracted (the played mainline). Variations
     embedded in the PGN are not traversed in this MVP.
     """
+    if color not in VALID_COLORS:
+        raise ValueError(f"color must be one of {VALID_COLORS}, got {color!r}")
+
     game = chess.pgn.read_game(io.StringIO(_normalize_pgn(pgn)))
     if game is None:
         return []
 
     board = game.board()
+    white_starts = board.turn == chess.WHITE
     san_moves: list[str] = []
     node = game
     while node.variations:
@@ -75,6 +104,10 @@ def extract_variants(pgn: str, color: str = "white", min_depth: int = 0) -> list
         san_moves.append(san)
 
     if len(san_moves) < min_depth:
+        return []
+
+    san_moves = _truncate_to_own_move(san_moves, color=color, white_starts=white_starts)
+    if not san_moves:
         return []
 
     eco = game.headers.get("ECO")

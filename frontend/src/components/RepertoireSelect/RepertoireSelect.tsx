@@ -5,11 +5,14 @@ import type { Color, Repertoire } from "../../types";
 export interface RepertoireSelectProps {
   /** Id of the selected repertoire, or "" for none. */
   value: string;
-  onChange: (repertoireId: string) => void;
+  /** Receives the id and, when known, the repertoire itself. */
+  onChange: (repertoireId: string, repertoire?: Repertoire) => void;
   /** Label shown next to the dropdown. */
   label?: string;
   /** Select the first repertoire once the list loads, if none is selected. */
   autoSelectFirst?: boolean;
+  /** Colour the creation form starts on, e.g. the side being filed. */
+  preferredColor?: Color;
 }
 
 /**
@@ -24,12 +27,13 @@ export default function RepertoireSelect({
   onChange,
   label = "Répertoire",
   autoSelectFirst = false,
+  preferredColor,
 }: RepertoireSelectProps) {
   const [repertoires, setRepertoires] = useState<Repertoire[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
-  const [color, setColor] = useState<Color>("white");
+  const [color, setColor] = useState<Color>(preferredColor ?? "white");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,9 +50,16 @@ export default function RepertoireSelect({
     }
   }, []);
 
+  // Follow the caller when the side being filed changes, as long as the user
+  // has not opened the form and picked a colour themselves.
+  useEffect(() => {
+    if (preferredColor && !creating) setColor(preferredColor);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preferredColor]);
+
   useEffect(() => {
     void load().then((reps) => {
-      if (autoSelectFirst && reps.length > 0 && !value) onChange(reps[0].id);
+      if (autoSelectFirst && reps.length > 0 && !value) onChange(reps[0].id, reps[0]);
       // With nothing to choose from, open the form instead of showing an
       // empty dropdown the user cannot act on.
       if (reps.length === 0) setCreating(true);
@@ -68,7 +79,7 @@ export default function RepertoireSelect({
     try {
       const created = await repertoireApi.create({ name: trimmed, color });
       await load();
-      onChange(created.id);
+      onChange(created.id, created);
       setName("");
       setCreating(false);
     } catch (e: unknown) {
@@ -83,7 +94,15 @@ export default function RepertoireSelect({
       <div className="repertoire-select__row">
         <label>
           {label}&nbsp;
-          <select value={value} onChange={(e) => onChange(e.target.value)}>
+          <select
+            value={value}
+            onChange={(e) =>
+              onChange(
+                e.target.value,
+                repertoires.find((r) => r.id === e.target.value)
+              )
+            }
+          >
             <option value="">
               {loaded && repertoires.length === 0
                 ? "— Aucun répertoire —"
