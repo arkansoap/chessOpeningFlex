@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -64,9 +64,23 @@ def import_from_chesscom(
     response_model=list[ImportedGameOut],
     status_code=status.HTTP_201_CREATED,
 )
-async def upload_pgn(body: str = "", db: Session = Depends(get_db)) -> list[ImportedGameOut]:
-    """Upload a raw PGN string and import the games it contains."""
-    if not body or not body.strip():
+async def upload_pgn(
+    request: Request, db: Session = Depends(get_db)
+) -> list[ImportedGameOut]:
+    """Upload a raw PGN string and import the games it contains.
+
+    The PGN is read straight from the request body rather than declared as a
+    parameter: a bare `str` parameter would be treated by FastAPI as a query
+    parameter, leaving the body unread.
+    """
+    raw = await request.body()
+    try:
+        body = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        # PGN exports from older tools are frequently latin-1, which decodes
+        # any byte sequence and so always succeeds.
+        body = raw.decode("latin-1")
+    if not body.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Empty PGN body",

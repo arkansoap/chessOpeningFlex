@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { repertoire as repertoireApi } from "../../services/api";
-import type { Repertoire, VariantExtracted } from "../../types";
+import RepertoireSelect from "../RepertoireSelect/RepertoireSelect";
+import type { Color, Repertoire, VariantExtracted } from "../../types";
 
 export interface LineSelectorProps {
   variant: VariantExtracted | null;
+  /** Side the line was extracted for; used to keep the target coherent. */
+  color?: Color;
   /** Called after the line is successfully added to a repertoire. */
   onAdded?: (lineId: string) => void;
 }
@@ -12,16 +15,16 @@ export interface LineSelectorProps {
  * Lets the user pick a target repertoire and trim the variant to a chosen
  * depth (number of plies), then persist it as a repertoire line.
  */
-export default function LineSelector({ variant, onAdded }: LineSelectorProps) {
-  const [repertoires, setRepertoires] = useState<Repertoire[]>([]);
+export default function LineSelector({
+  variant,
+  color = "white",
+  onAdded,
+}: LineSelectorProps) {
   const [repertoireId, setRepertoireId] = useState("");
+  const [target, setTarget] = useState<Repertoire | undefined>();
   const [maxDepth, setMaxDepth] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    void repertoireApi.list().then(setRepertoires).catch(() => undefined);
-  }, []);
 
   useEffect(() => {
     if (variant) {
@@ -64,20 +67,27 @@ export default function LineSelector({ variant, onAdded }: LineSelectorProps) {
       <h3>Intégrer la ligne</h3>
       <p style={{ fontFamily: "monospace" }}>{trimmed || "—"}</p>
 
-      <label>
-        Répertoire cible&nbsp;
-        <select
-          value={repertoireId}
-          onChange={(e) => setRepertoireId(e.target.value)}
-        >
-          <option value="">— Choisir —</option>
-          {repertoires.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.name} ({r.color})
-            </option>
-          ))}
-        </select>
-      </label>
+      <RepertoireSelect
+        label="Répertoire cible"
+        value={repertoireId}
+        preferredColor={color}
+        onChange={(id, repertoire) => {
+          setRepertoireId(id);
+          setTarget(repertoire);
+          setError(null);
+        }}
+      />
+
+      {/* The line was cut to end on `color`'s move, so filing it under the
+          other side would store a line that never reaches the user's turn. */}
+      {target && target.color !== color && (
+        <p style={{ color: "#b45309" }}>
+          ⚠ La ligne a été extraite pour les{" "}
+          {color === "white" ? "blancs" : "noirs"}, mais «&nbsp;{target.name}
+          &nbsp;» est un répertoire pour les{" "}
+          {target.color === "white" ? "blancs" : "noirs"}.
+        </p>
+      )}
 
       <label>
         Profondeur (coups)&nbsp;

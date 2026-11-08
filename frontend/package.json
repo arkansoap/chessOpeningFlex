@@ -2,12 +2,16 @@
   "name": "chessopeningflex-frontend",
   "private": true,
   "version": "0.1.0",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "lint": "eslint . --ext ts,tsx"
+    "lint": "eslint . --ext ts,tsx",
+    "engine:fetch": "node scripts/fetch-stockfish.mjs",
+    "postinstall": "node scripts/fetch-stockfish.mjs",
+    "prebuild": "node scripts/fetch-stockfish.mjs"
   },
   "dependencies": {
     "axios": "^1.7.9",

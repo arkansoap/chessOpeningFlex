@@ -105,3 +105,10 @@ alembic revision --autogenerate -m "description du changement"
 - [ ] Tests frontend
 - [ ] Optimisation du bundle frontend (code-splitting)
 
+## Licence
+
+Ce projet est distribué sous licence [MIT](LICENSE).
+
+Le moteur d'analyse embarqué, [Stockfish](https://github.com/official-stockfish/Stockfish),
+est sous GPL-3.0 et reste soumis à ses propres conditions : voir
+[THIRD-PARTY.md](THIRD-PARTY.md).

@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import RepertoireTree from "../../components/RepertoireTree/RepertoireTree";
 import LineEditor from "../../components/LineEditor/LineEditor";
+import RepertoireSelect from "../../components/RepertoireSelect/RepertoireSelect";
 import { repertoire as repertoireApi } from "../../services/api";
-import type { Repertoire, RepertoireDetail, RepertoireLine } from "../../types";
+import type { RepertoireDetail, RepertoireLine } from "../../types";
 
 /**
  * Page 2: Consult a repertoire.
@@ -11,18 +12,9 @@ import type { Repertoire, RepertoireDetail, RepertoireLine } from "../../types";
  * (comment, depth, priority) or delete it.
  */
 export default function ConsultRepertoirePage() {
-  const [repertoires, setRepertoires] = useState<Repertoire[]>([]);
   const [selectedRepId, setSelectedRepId] = useState("");
   const [detail, setDetail] = useState<RepertoireDetail | null>(null);
   const [selectedLine, setSelectedLine] = useState<RepertoireLine | null>(null);
-
-  useEffect(() => {
-    void repertoireApi.list().then((reps) => {
-      setRepertoires(reps);
-      if (reps.length > 0 && !selectedRepId) setSelectedRepId(reps[0].id);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => {
     if (!selectedRepId) {
@@ -42,20 +34,11 @@ export default function ConsultRepertoirePage() {
     <div>
       <h1>Consulter le répertoire</h1>
 
-      <label>
-        Répertoire&nbsp;
-        <select
-          value={selectedRepId}
-          onChange={(e) => setSelectedRepId(e.target.value)}
-        >
-          <option value="">— Choisir —</option>
-          {repertoires.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.name} ({r.color})
-            </option>
-          ))}
-        </select>
-      </label>
+      <RepertoireSelect
+        value={selectedRepId}
+        onChange={setSelectedRepId}
+        autoSelectFirst
+      />
 
       <div style={{ display: "flex", gap: "2rem", marginTop: "1rem", flexWrap: "wrap" }}>
         <section style={{ flex: "1 1 280px" }}>

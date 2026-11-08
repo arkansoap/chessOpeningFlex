@@ -45,3 +45,242 @@ body {
   padding: 2rem;
   background: #f3f4f6;
 }
+
+/* --- Variant replay board + engine analysis --------------------------- */
+
+.variant-player__row {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.variant-player__board {
+  width: 420px;
+  max-width: 100%;
+  flex: 0 0 auto;
+}
+
+.engine-analysis {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 300px;
+  flex: 1 1 320px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+
+.engine-analysis__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.engine-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  background: #f9fafb;
+  color: #6b7280;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.engine-toggle:hover:not(:disabled) {
+  border-color: #9ca3af;
+}
+
+.engine-toggle--on {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #15803d;
+}
+
+.engine-toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.engine-analysis__meta {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.engine-analysis__body {
+  display: flex;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.engine-analysis__footer {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+/* Evaluation bar: black on top, white filling from the bottom. */
+.eval-bar {
+  position: relative;
+  /* Wide enough to fit a full score label such as "-12.34". */
+  width: 34px;
+  flex: 0 0 auto;
+  background: #1f2937;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.eval-bar--empty {
+  background: repeating-linear-gradient(
+    45deg,
+    #e5e7eb,
+    #e5e7eb 4px,
+    #f3f4f6 4px,
+    #f3f4f6 8px
+  );
+}
+
+.eval-bar__white {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #f8fafc;
+  transition: height 180ms ease-out;
+}
+
+.eval-bar__label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.62rem;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.engine-lines {
+  flex: 1;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  font-size: 0.85rem;
+}
+
+.engine-lines__row {
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+  padding: 0.3rem 0.25rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.engine-lines__score {
+  flex: 0 0 3.6rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 700;
+  color: #15803d;
+}
+
+.engine-lines__score--black {
+  color: #b91c1c;
+}
+
+.engine-lines__pv {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #374151;
+  /* Keep each line on one row so the list stays scannable. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.engine-lines__empty {
+  padding: 0.5rem 0.25rem;
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+.engine-lines__error {
+  display: block;
+  margin-top: 0.4rem;
+  color: #b91c1c;
+  font-size: 0.75rem;
+}
+
+/* --- Variant analyzer layout ------------------------------------------ */
+
+.variant-analyzer__layout {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.variant-analyzer__board {
+  flex: 1 1 760px;
+  min-width: 0;
+}
+
+.variant-list {
+  flex: 0 0 220px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 480px;
+  overflow-y: auto;
+  font-size: 0.85rem;
+}
+
+.variant-list__item {
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 4px;
+}
+
+.variant-list__item:hover {
+  background: #eef2ff;
+}
+
+.variant-list__item--active {
+  background: #dbeafe;
+}
+
+.engine-analysis__footer a {
+  color: inherit;
+}
+
+/* --- Repertoire picker + inline creation ------------------------------ */
+
+.repertoire-select__row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.repertoire-select__form {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  /* Hug the fields rather than stretching across the page. */
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 0.6rem;
+  padding: 0.75rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
