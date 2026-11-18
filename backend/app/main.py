@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import api_router
 from app.core.config import ensure_data_dirs, settings
 from app.core.database import run_migrations
-from app.core.models import Color, GameSource, TrainingMode  # noqa: F401 - ensure enums imported
+from app.services.analysis.engine import engine_service
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,12 +22,13 @@ async def lifespan(app: FastAPI):
     run_migrations()
     logger.info("Database migrations applied")
     yield
+    engine_service.close()
 
 
 app = FastAPI(
     title="ChessOpeningFlex API",
-    version="0.1.0",
-    description="Build and train chess opening repertoires.",
+    version="0.2.0",
+    description="Build an opening repertoire from your own games, and train it.",
     lifespan=lifespan,
 )
 

@@ -1,253 +1,59 @@
-"""Pydantic schemas for request/response validation."""
+"""Pydantic schemas for request bodies.
+
+Responses are plain dictionaries built by the services; their shape is
+mirrored in `frontend/src/types`.
+"""
 from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 
-# --- Common config ---------------------------------------------------------
+class AccountsIn(BaseModel):
+    chesscom: str | None = None
+    lichess: str | None = None
 
 
-class ORMBase(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+class SyncIn(BaseModel):
+    platforms: list[Literal["chesscom", "lichess"]] | None = None
+    # On a first import, only go back this many months (None = everything).
+    months: int | None = Field(None, ge=1, le=600)
 
 
-# --- Enums mirrored from models (as plain str for API stability) ----------
+class AnalysisRunIn(BaseModel):
+    min_games: int = Field(2, ge=1, le=50)
 
 
-# --- ImportedGame ---------------------------------------------------------
+class EvaluateIn(BaseModel):
+    line: str | None = None
+    fen: str | None = None
+    depth: int | None = Field(None, ge=1, le=30)
 
 
-class ImportedGameBase(BaseModel):
-    source: str
-    chesscom_username: str | None = None
-    pgn_file_path: str | None = None
-    game_id: str
-    white_player: str
-    black_player: str
-    result: str
-    date: str | None = None
-    eco_code: str | None = None
-    pgn_data: str
-    is_processed: bool = False
+class EntryIn(BaseModel):
+    """The move I play in the position reached by `line` (or given by `fen`)."""
 
-
-class ImportedGameCreate(ImportedGameBase):
-    pass
-
-
-class ImportedGameOut(ORMBase, ImportedGameBase):
-    id: str
-
-
-# --- GameVariant ----------------------------------------------------------
-
-
-class GameVariantBase(BaseModel):
-    moves: str
-    starting_position: str = "startpos"
-    evaluation: float | None = None
-    is_valid: bool = True
-    depth: int = 0
-
-
-class GameVariantCreate(GameVariantBase):
-    game_id: str
-
-
-class GameVariantOut(ORMBase, GameVariantBase):
-    id: str
-    game_id: str
-
-
-# --- Repertoire -----------------------------------------------------------
-
-
-class RepertoireBase(BaseModel):
-    name: str
-    color: str
-    description: str | None = None
-    is_active: bool = True
-
-
-class RepertoireCreate(RepertoireBase):
-    pass
-
-
-class RepertoireUpdate(BaseModel):
-    name: str | None = None
-    description: str | None = None
-    is_active: bool | None = None
-
-
-class RepertoireOut(ORMBase, RepertoireBase):
-    id: str
-
-
-class RepertoireDetailOut(RepertoireOut):
-    lines: list["RepertoireLineOut"] = Field(default_factory=list)
-
-
-# --- RepertoireLine -------------------------------------------------------
-
-
-class RepertoireLineBase(BaseModel):
-    moves: str
-    starting_position: str = "startpos"
+    line: str | None = None
+    fen: str | None = None
+    move: str
     comment: str | None = None
-    depth: int = 0
-    priority: int = 0
+    source: str = "manual"
 
 
-class RepertoireLineCreate(RepertoireLineBase):
-    repertoire_id: str
-    variant_id: str | None = None
-
-
-class RepertoireLineUpdate(BaseModel):
-    moves: str | None = None
+class EntryCommentIn(BaseModel):
     comment: str | None = None
-    depth: int | None = None
-    priority: int | None = None
-    last_reviewed: str | None = None
 
 
-class RepertoireLineOut(ORMBase, RepertoireLineBase):
-    id: str
-    repertoire_id: str
-    variant_id: str | None = None
-    last_reviewed: str | None = None
+class AdoptIn(BaseModel):
+    min_games: int = Field(3, ge=1, le=100)
+    min_share: float = Field(0.5, ge=0, le=1)
+    max_loss: float = Field(5.0, ge=0, le=100)
+    require_eval: bool = False
+    dry_run: bool = True
 
 
-# --- Training -------------------------------------------------------------
-
-
-class TrainingSessionBase(BaseModel):
-    repertoire_id: str
-    line_id: str
-    mode: str
-    date: str
-    score: int | None = None
-    total_questions: int = 0
-    correct_answers: int = 0
-    time_spent: int | None = None
-
-
-class TrainingSessionCreate(TrainingSessionBase):
-    pass
-
-
-class TrainingSessionOut(ORMBase, TrainingSessionBase):
-    id: str
-
-
-class TrainingQuestionOut(BaseModel):
-    """A single training question: a FEN position and the expected next move."""
-
-    line_id: str
-    fen: str
-    expected_move: str  # SAN
-    move_number: int
-    color_to_move: str
-
-
-class TrainingAnswerIn(BaseModel):
-    line_id: str
-    move_played: str  # SAN
-    expected_move: str
-    fen: str
-
-
-class TrainingAnswerOut(BaseModel):
-    is_correct: bool
-    expected_move: str
-    move_played: str
-
-
-# --- chess.com import -----------------------------------------------------
-
-
-class ChesscomImportIn(BaseModel):
-    username: str
-    time_control: str | None = None
-    start_date: str | None = None  # YYYY-MM
-    end_date: str | None = None  # YYYY-MM
-
-
-# --- stats ----------------------------------------------------------------
-
-
-class MemorizationStatOut(ORMBase):
-    id: str
-    line_id: str
-    date: str
-    success_rate: float
-    attempts: int
-    last_attempt: str | None = None
-
-
-# Re-resolve forward references
-RepertoireDetailOut.model_rebuild()
-
-
-# --- Analysis -------------------------------------------------------------
-
-
-class AnalyzeVariantsIn(BaseModel):
-    pgn: str
-    # Which side the repertoire is for; the extracted line ends on its move.
-    color: Literal["white", "black"] = "white"
-    min_depth: int = 0
-
-
-class VariantExtractedOut(BaseModel):
-    moves: str
-    starting_position: str
-    eco_code: str | None = None
-
-
-class EvaluatePositionIn(BaseModel):
-    fen: str
-    depth: int | None = None
-
-
-class EvaluatePositionOut(BaseModel):
-    fen: str
-    score: float  # centipawn score from white's perspective
-    depth: int
-    best_move: str | None = None
-    mate: int | None = None
-
-
-# helper for date.today() defaults kept out of schemas (controllers compute them)
-__all__ = [
-    "ORMBase",
-    "ImportedGameBase",
-    "ImportedGameCreate",
-    "ImportedGameOut",
-    "GameVariantBase",
-    "GameVariantCreate",
-    "GameVariantOut",
-    "RepertoireBase",
-    "RepertoireCreate",
-    "RepertoireUpdate",
-    "RepertoireOut",
-    "RepertoireDetailOut",
-    "RepertoireLineBase",
-    "RepertoireLineCreate",
-    "RepertoireLineUpdate",
-    "RepertoireLineOut",
-    "TrainingSessionBase",
-    "TrainingSessionCreate",
-    "TrainingSessionOut",
-    "TrainingQuestionOut",
-    "TrainingAnswerIn",
-    "TrainingAnswerOut",
-    "ChesscomImportIn",
-    "MemorizationStatOut",
-    "AnalyzeVariantsIn",
-    "VariantExtractedOut",
-    "EvaluatePositionIn",
-    "EvaluatePositionOut",
-]
+class AnswerIn(BaseModel):
+    entry_id: str
+    move: str = ""
+    reveal: bool = False

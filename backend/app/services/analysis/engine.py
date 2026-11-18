@@ -1,157 +1,158 @@
-"""Stockfish engine integration, with a graceful fallback when unavailable."""
+"""Native Stockfish, driven over UCI, with a cache of evaluations.
+
+The engine process is started on first use and shared; a lock serialises the
+searches. When no binary is available the service reports itself unavailable
+and callers degrade gracefully (the browser keeps its own WASM engine).
+"""
 from __future__ import annotations
 
 import logging
-from typing import Any
+import os
+import threading
 
 import chess
 import chess.engine
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.models import PositionEval, utcnow
+from app.services.chess_utils import position_key
 
 logger = logging.getLogger(__name__)
 
 
 class EngineUnavailable(RuntimeError):
-    """Raised when no Stockfish binary is available."""
+    """Raised when no Stockfish binary can be started."""
 
 
 class EngineService:
-    """Wraps the python `stockfish` package if available; otherwise a
-    python-chess UCI fallback is used. If neither engine is available the
-    service reports itself as disabled so callers can degrade gracefully.
-    """
-
     def __init__(self) -> None:
-        self._engine: Any | None = None
-        self._disabled = False
-        self._init_engine()
+        self._engine: chess.engine.SimpleEngine | None = None
+        self._lock = threading.Lock()
 
-    def _init_engine(self) -> None:
-        # Prefer the `stockfish` package wrapper.
-        try:
-            from stockfish import Stockfish  # type: ignore
-
-            path = settings.stockfish_path
-            try:
-                self._engine = Stockfish(path) if path else Stockfish()
-                logger.info("Stockfish engine loaded via stockfish package")
-                return
-            except Exception as exc:  # pragma: no cover - env dependent
-                logger.warning("stockfish package init failed: %s", exc)
-        except ImportError:
-            logger.info("stockfish package not installed; trying UCI fallback")
-
-        # Fallback: python-chess engine protocol (needs a binary on PATH).
-        try:
-            path = settings.stockfish_path or "stockfish"
-            self._engine = chess.engine.SimpleEngine.popen_uci(path)
-            logger.info("Stockfish engine loaded via UCI: %s", path)
-        except Exception as exc:  # pragma: no cover - env dependent
-            logger.warning("No usable Stockfish binary (%s); analysis disabled", exc)
-            self._engine = None
-            self._disabled = True
+    @property
+    def path(self) -> str | None:
+        return settings.resolved_stockfish_path
 
     @property
     def available(self) -> bool:
-        return self._engine is not None and not self._disabled
+        return self.path is not None
 
-    def evaluate(
-        self, fen: str, depth: int | None = None
-    ) -> dict:
-        """Return an evaluation dict: score (centipawns, white POV),
-        depth, best_move (SAN), mate (plies, signed)."""
-        depth = depth or settings.stockfish_depth
-        if not self.available:
-            return {
-                "fen": fen,
-                "score": 0.0,
-                "depth": 0,
-                "best_move": None,
-                "mate": None,
-                "available": False,
-            }
-        board = chess.Board(fen)
+    def _ensure(self) -> chess.engine.SimpleEngine:
+        if self._engine is None:
+            path = self.path
+            if path is None:
+                raise EngineUnavailable("Stockfish introuvable sur le serveur")
+            try:
+                engine = chess.engine.SimpleEngine.popen_uci(path)
+                # Never more threads than cores: on a small server that would
+                # only slow the search down.
+                threads = max(1, min(settings.analysis_threads, os.cpu_count() or 1))
+                engine.configure({"Threads": threads, "Hash": settings.analysis_hash_mb})
+            except Exception as exc:  # noqa: BLE001 - binary missing, wrong arch...
+                raise EngineUnavailable(f"Stockfish ne démarre pas : {exc}") from exc
+            self._engine = engine
+            logger.info("Stockfish started: %s", path)
+        return self._engine
 
-        if self._is_stockfish_pkg():
-            self._engine.set_fen_position(fen)
-            sf = self._engine
-            info = sf.get_evaluation()
-            best_move_uci = sf.get_best_move()
-            best_move_san = (
-                board.san(chess.Move.from_uci(best_move_uci))
-                if best_move_uci
-                else None
-            )
-            if info.get("type") == "cp":
-                score = float(info.get("value", 0.0))
-                # score is from side-to-move POV; normalize to white POV
-                if board.turn == chess.BLACK:
-                    score = -score
-                return {
-                    "fen": fen,
-                    "score": score,
-                    "depth": depth,
-                    "best_move": best_move_san,
-                    "mate": None,
-                    "available": True,
-                }
-            elif info.get("type") == "mate":
-                mate = int(info.get("value", 0))
-                if board.turn == chess.BLACK:
-                    mate = -mate
-                return {
-                    "fen": fen,
-                    "score": 0.0,
-                    "depth": depth,
-                    "best_move": best_move_san,
-                    "mate": mate,
-                    "available": True,
-                }
+    def analyse(self, board: chess.Board, depth: int | None = None) -> dict:
+        """Evaluate a position from the side to move.
+
+        Returns {"cp", "mate", "best_uci", "best_san", "pv_san", "depth"}.
+        """
+        depth = depth or settings.analysis_depth
+        if board.is_game_over():
+            mated = board.is_checkmate()
             return {
-                "fen": fen,
-                "score": 0.0,
+                "cp": None if mated else 0,
+                "mate": 0 if mated else None,
+                "best_uci": None,
+                "best_san": None,
+                "pv_san": "",
                 "depth": depth,
-                "best_move": best_move_san,
-                "mate": None,
-                "available": True,
             }
-        # UCI fallback
-        info = self._engine.analyse(board, chess.engine.Limit(depth=depth))
-        pov = info.get("score")
-        best_move = info.get("pv", [None])[0] if info.get("pv") else None
-        best_move_san = board.san(best_move) if best_move else None
-        if pov is None:
-            return {
-                "fen": fen,
-                "score": 0.0,
-                "depth": depth,
-                "best_move": best_move_san,
-                "mate": None,
-                "available": True,
-            }
-        white_score = pov.white()
-        if white_score.is_mate():
-            return {
-                "fen": fen,
-                "score": 0.0,
-                "depth": depth,
-                "best_move": best_move_san,
-                "mate": white_score.mate(),
-                "available": True,
-            }
+        with self._lock:
+            engine = self._ensure()
+            try:
+                info = engine.analyse(board, chess.engine.Limit(depth=depth))
+            except (chess.engine.EngineError, chess.engine.EngineTerminatedError) as exc:
+                # A dead process must not poison the next request.
+                self._engine = None
+                raise EngineUnavailable(f"Stockfish s'est arrêté : {exc}") from exc
+        score = info["score"].pov(board.turn)
+        pv = info.get("pv") or []
+        best = pv[0] if pv else None
         return {
-            "fen": fen,
-            "score": float(white_score.score()),
-            "depth": depth,
-            "best_move": best_move_san,
-            "mate": None,
-            "available": True,
+            "cp": score.score(),
+            "mate": score.mate(),
+            "best_uci": best.uci() if best else None,
+            "best_san": board.san(best) if best else None,
+            "pv_san": board.variation_san(pv[:8]) if pv else "",
+            "depth": info.get("depth", depth),
         }
 
-    def _is_stockfish_pkg(self) -> bool:
-        return self._engine.__class__.__module__.startswith("stockfish")
+    def close(self) -> None:
+        with self._lock:
+            if self._engine is not None:
+                try:
+                    self._engine.quit()
+                except Exception:  # noqa: BLE001 - already gone
+                    pass
+                self._engine = None
 
 
-# Singleton used across requests.
 engine_service = EngineService()
+
+
+def board_from_key(key: str) -> chess.Board:
+    board = chess.Board()
+    board.set_epd(key)
+    return board
+
+
+def cached_eval(db: Session, key: str) -> PositionEval | None:
+    return db.get(PositionEval, key)
+
+
+def evaluate(
+    db: Session,
+    board: chess.Board,
+    depth: int | None = None,
+    engine: EngineService | None = None,
+) -> PositionEval:
+    """Evaluation of a position, from the cache when deep enough.
+
+    The caller commits.
+    """
+    depth = depth or settings.analysis_depth
+    key = position_key(board)
+    row = db.get(PositionEval, key)
+    if row is not None and row.depth >= depth:
+        return row
+    result = (engine or engine_service).analyse(board, depth)
+    if row is None:
+        row = PositionEval(key=key)
+        db.add(row)
+    row.depth = result["depth"]
+    row.cp = result["cp"]
+    row.mate = result["mate"]
+    row.best_uci = result["best_uci"]
+    row.best_san = result["best_san"]
+    row.pv_san = result["pv_san"]
+    row.updated_at = utcnow()
+    return row
+
+
+def eval_dict(row: PositionEval | None, pov_is_mover: bool = True) -> dict | None:
+    """Serialise an evaluation, optionally flipped to the other side."""
+    if row is None:
+        return None
+    sign = 1 if pov_is_mover else -1
+    return {
+        "cp": sign * row.cp if row.cp is not None else None,
+        "mate": sign * row.mate if row.mate is not None else None,
+        "best_san": row.best_san,
+        "best_uci": row.best_uci,
+        "pv_san": row.pv_san,
+        "depth": row.depth,
+    }

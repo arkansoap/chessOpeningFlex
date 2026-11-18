@@ -24,8 +24,10 @@ config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)
 
 # Interpret the config file for Python logging.
+# Migrations also run inside the app at startup: keep its loggers (uvicorn's
+# among them) alive instead of letting the ini file silence them.
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # App models metadata, for autogenerate support.
 target_metadata = Base.metadata

@@ -16,13 +16,9 @@ dist/
 dist-ssr/
 *.local
 
-# Data
-data/*.db
-data/*.sqlite3
-data/raw/*
-!data/raw/.gitkeep
-data/processed/*
-!data/processed/.gitkeep
+# Data: the SQLite database (and its WAL files) stays local
+data/*
+!data/.gitkeep
 
 # Env
 .env
@@ -35,3 +31,9 @@ data/processed/*
 
 # Build
 *.log
+
+# Native engine fetched by backend/scripts/fetch_stockfish.py
+backend/.tools/
+
+# Password file of the public deployment
+deploy/auth.caddy

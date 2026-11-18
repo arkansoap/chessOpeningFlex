@@ -1,90 +1,130 @@
-"""SQLAlchemy ORM models for the chess repertoire application."""
+"""SQLAlchemy ORM models.
+
+The app is built around positions rather than games or lines:
+
+* every imported game is indexed ply by ply (`GamePly`), each ply carrying the
+  key of the position it was played from, so that all games merge into one
+  tree and transpositions meet;
+* a repertoire is a map "position -> the move I play there"
+  (`RepertoireEntry`). The opponent's replies are not stored: a reply is
+  covered when the position it leads to has an entry.
+"""
 from __future__ import annotations
 
 import uuid
-from enum import Enum
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     Boolean,
     Column,
-    Float,
+    DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import declarative_base, relationship
 
 
 Base = declarative_base()
 
+WHITE = "white"
+BLACK = "black"
+COLORS = (WHITE, BLACK)
+
 
 def _uuid() -> str:
     return str(uuid.uuid4())
 
 
-class Color(str, Enum):
-    WHITE = "white"
-    BLACK = "black"
+def utcnow() -> datetime:
+    """Naive UTC timestamp: SQLite drops the timezone anyway."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
-class GameSource(str, Enum):
-    CHESS_COM_API = "chess_com_api"
-    PGN_UPLOAD = "pgn_upload"
+class Account(Base):
+    """One of my accounts on a playing site; games are synced from it."""
+
+    __tablename__ = "accounts"
+
+    platform = Column(String, primary_key=True)  # "chesscom" | "lichess"
+    username = Column(String, nullable=False)
+    last_synced_at = Column(DateTime, nullable=True)
+    # Where the next sync resumes: last archive month for chess.com
+    # ("YYYY/MM"), creation time in ms of the newest game for Lichess.
+    sync_cursor = Column(String, nullable=True)
 
 
-class TrainingMode(str, Enum):
-    RANDOM = "random"
-    SEQUENTIAL = "sequential"
-    FULL_VARIATION = "full_variation"
+class Game(Base):
+    """A game of mine, imported from chess.com, Lichess or a PGN file."""
 
-
-class ImportedGame(Base):
-    """A game imported from chess.com API or a PGN upload."""
-
-    __tablename__ = "imported_games"
-
-    id = Column(String, primary_key=True, default=_uuid)
-    source = Column(String, nullable=False)
-    chesscom_username = Column(String, nullable=True)
-    pgn_file_path = Column(String, nullable=True)
-    game_id = Column(String, nullable=False, index=True)
-    white_player = Column(String, nullable=False)
-    black_player = Column(String, nullable=False)
-    result = Column(String, nullable=False)
-    date = Column(String, nullable=True)
-    eco_code = Column(String, nullable=True, index=True)
-    pgn_data = Column(Text, nullable=False)
-    is_processed = Column(Boolean, default=False, nullable=False)
-
-    variants = relationship(
-        "GameVariant", back_populates="game", cascade="all, delete-orphan"
+    __tablename__ = "games"
+    __table_args__ = (
+        UniqueConstraint("platform", "external_id", name="uq_games_platform_external_id"),
+        Index("ix_games_my_color_played_at", "my_color", "played_at"),
     )
 
-
-class GameVariant(Base):
-    """A variant (move sequence) extracted from an imported game."""
-
-    __tablename__ = "game_variants"
-
     id = Column(String, primary_key=True, default=_uuid)
-    game_id = Column(String, ForeignKey("imported_games.id"), nullable=False, index=True)
-    moves = Column(Text, nullable=False)
-    starting_position = Column(String, nullable=False)
-    evaluation = Column(Float, nullable=True)
-    is_valid = Column(Boolean, default=True, nullable=False)
-    depth = Column(Integer, nullable=False, default=0)
+    platform = Column(String, nullable=False)  # "chesscom" | "lichess" | "pgn"
+    external_id = Column(String, nullable=False)
+    url = Column(String, nullable=True)
+    white = Column(String, nullable=False)
+    black = Column(String, nullable=False)
+    white_elo = Column(Integer, nullable=True)
+    black_elo = Column(Integer, nullable=True)
+    result = Column(String, nullable=False)  # "1-0" | "0-1" | "1/2-1/2" | "*"
+    # Which side I played and how it went, None when I am not in the game.
+    my_color = Column(String, nullable=True)
+    my_result = Column(String, nullable=True)  # "win" | "draw" | "loss"
+    opponent = Column(String, nullable=True)
+    opponent_elo = Column(Integer, nullable=True)
+    time_class = Column(String, nullable=True)  # bullet|blitz|rapid|classical|daily
+    rated = Column(Boolean, nullable=True)
+    played_at = Column(DateTime, nullable=True)
+    eco = Column(String, nullable=True)
+    opening_name = Column(String, nullable=True)
+    moves_san = Column(Text, nullable=False, default="")
+    ply_count = Column(Integer, nullable=False, default=0)
+    imported_at = Column(DateTime, nullable=False, default=utcnow)
 
-    game = relationship("ImportedGame", back_populates="variants")
-    repertoire_lines = relationship(
-        "RepertoireLine",
-        back_populates="variant",
-        cascade="all, delete-orphan",
-    )
+    plies = relationship("GamePly", back_populates="game", cascade="all, delete-orphan")
+
+
+class GamePly(Base):
+    """One of the first plies of a game, keyed by the position it starts from."""
+
+    __tablename__ = "game_plies"
+    __table_args__ = (Index("ix_game_plies_key_before", "key_before"),)
+
+    game_id = Column(String, ForeignKey("games.id", ondelete="CASCADE"), primary_key=True)
+    ply = Column(Integer, primary_key=True)  # 0 = White's first move
+    key_before = Column(String, nullable=False)
+    key_after = Column(String, nullable=False)
+    san = Column(String, nullable=False)
+    uci = Column(String, nullable=False)
+
+    game = relationship("Game", back_populates="plies")
+
+
+class PositionEval(Base):
+    """Cached engine evaluation of a position, from the side to move."""
+
+    __tablename__ = "position_evals"
+
+    key = Column(String, primary_key=True)
+    depth = Column(Integer, nullable=False)
+    cp = Column(Integer, nullable=True)
+    mate = Column(Integer, nullable=True)
+    best_uci = Column(String, nullable=True)
+    best_san = Column(String, nullable=True)
+    pv_san = Column(Text, nullable=True)
+    updated_at = Column(DateTime, nullable=False, default=utcnow)
 
 
 class Repertoire(Base):
-    """A repertoire (white or black) grouping multiple lines."""
+    """My repertoire for one colour."""
 
     __tablename__ = "repertoires"
 
@@ -94,76 +134,61 @@ class Repertoire(Base):
     description = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
 
-    lines = relationship(
-        "RepertoireLine",
-        back_populates="repertoire",
-        cascade="all, delete-orphan",
+    entries = relationship(
+        "RepertoireEntry", back_populates="repertoire", cascade="all, delete-orphan"
     )
 
 
-class RepertoireLine(Base):
-    """A line selected and cleaned for inclusion in a repertoire."""
+class RepertoireEntry(Base):
+    """The move I play in one position, with its spaced-repetition state."""
 
-    __tablename__ = "repertoire_lines"
+    __tablename__ = "repertoire_entries"
+    __table_args__ = (
+        UniqueConstraint("repertoire_id", "position_key", name="uq_entries_repertoire_position"),
+        Index("ix_entries_due_at", "due_at"),
+    )
 
     id = Column(String, primary_key=True, default=_uuid)
     repertoire_id = Column(
-        String, ForeignKey("repertoires.id"), nullable=False, index=True
+        String, ForeignKey("repertoires.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    variant_id = Column(
-        String, ForeignKey("game_variants.id"), nullable=True, index=True
-    )
-    moves = Column(Text, nullable=False)
-    starting_position = Column(String, nullable=False)
+    position_key = Column(String, nullable=False)
+    fen = Column(String, nullable=False)
+    # One move order reaching the position, for display and opening naming.
+    line_san = Column(Text, nullable=False, default="")
+    move_san = Column(String, nullable=False)
+    move_uci = Column(String, nullable=False)
     comment = Column(Text, nullable=True)
-    depth = Column(Integer, nullable=False, default=0)
-    priority = Column(Integer, default=0, nullable=False)
-    last_reviewed = Column(String, nullable=True)
+    source = Column(String, nullable=False, default="manual")
+    created_at = Column(DateTime, nullable=False, default=utcnow)
 
-    repertoire = relationship("Repertoire", back_populates="lines")
-    variant = relationship("GameVariant", back_populates="repertoire_lines")
-    training_sessions = relationship(
-        "TrainingSession",
-        back_populates="line",
-        cascade="all, delete-orphan",
-    )
+    # Spaced repetition. Level 0 = never learned (or just failed).
+    srs_level = Column(Integer, nullable=False, default=0)
+    due_at = Column(DateTime, nullable=True)
+    last_reviewed_at = Column(DateTime, nullable=True)
+    reviews = Column(Integer, nullable=False, default=0)
+    lapses = Column(Integer, nullable=False, default=0)
 
-
-class TrainingSession(Base):
-    """A single training session over one or more questions of a line."""
-
-    __tablename__ = "training_sessions"
-
-    id = Column(String, primary_key=True, default=_uuid)
-    repertoire_id = Column(
-        String, ForeignKey("repertoires.id"), nullable=False, index=True
-    )
-    line_id = Column(
-        String, ForeignKey("repertoire_lines.id"), nullable=False, index=True
-    )
-    mode = Column(String, nullable=False)
-    date = Column(String, nullable=False)
-    score = Column(Integer, nullable=True)
-    total_questions = Column(Integer, nullable=False, default=0)
-    correct_answers = Column(Integer, nullable=False, default=0)
-    time_spent = Column(Integer, nullable=True)
-
-    repertoire = relationship("Repertoire")
-    line = relationship("RepertoireLine", back_populates="training_sessions")
+    repertoire = relationship("Repertoire", back_populates="entries")
 
 
-class MemorizationStat(Base):
-    """Aggregated memorization statistics per line."""
+class ReviewLog(Base):
+    """One answer given in training, kept for the progress statistics."""
 
-    __tablename__ = "memorization_stats"
+    __tablename__ = "review_logs"
 
     id = Column(String, primary_key=True, default=_uuid)
-    line_id = Column(
-        String, ForeignKey("repertoire_lines.id"), nullable=False, index=True
-    )
-    date = Column(String, nullable=False)
-    success_rate = Column(Float, nullable=False, default=0.0)
-    attempts = Column(Integer, nullable=False, default=0)
-    last_attempt = Column(String, nullable=True)
+    entry_id = Column(String, nullable=False, index=True)
+    color = Column(String, nullable=False)
+    reviewed_at = Column(DateTime, nullable=False, default=utcnow, index=True)
+    correct = Column(Boolean, nullable=False)
 
-    line = relationship("RepertoireLine")
+
+class ExplorerCache(Base):
+    """Cached response of the Lichess opening explorer."""
+
+    __tablename__ = "explorer_cache"
+
+    cache_key = Column(String, primary_key=True)
+    payload = Column(Text, nullable=False)
+    fetched_at = Column(DateTime, nullable=False, default=utcnow)
