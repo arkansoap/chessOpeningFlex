@@ -30,7 +30,8 @@ export default defineConfig({
     headers: crossOriginIsolation,
     proxy: {
       "/api": {
-        target: "http://localhost:8000",
+        // Override when the backend listens elsewhere: API_TARGET=http://host:port
+        target: process.env.API_TARGET ?? "http://localhost:8000",
         changeOrigin: true,
       },
     },

@@ -1,6 +1,10 @@
 {
   "compilerOptions": {
     "composite": true,
+    // Emit outside the project root: a vite.config.js next to vite.config.ts
+    // would take precedence over it and silently serve a stale config.
+    "outDir": "./node_modules/.tmp/vite-config",
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
     "skipLibCheck": true,
     "module": "ESNext",
     "moduleResolution": "bundler",

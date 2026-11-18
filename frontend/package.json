@@ -1,7 +1,7 @@
 {
   "name": "chessopeningflex-frontend",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -15,19 +15,18 @@
   },
   "dependencies": {
     "axios": "^1.7.9",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^7.1.1",
-    "react-chessboard": "^4.7.2",
     "chess.js": "^1.0.0-beta.8",
-    "recharts": "^2.15.0"
+    "react": "^18.3.1",
+    "react-chessboard": "^4.7.2",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^7.1.1"
   },
   "devDependencies": {
+    "@types/node": "^22.10.5",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
     "typescript": "^5.7.2",
-    "vite": "^6.0.7",
-    "@types/node": "^22.10.5"
+    "vite": "^6.0.7"
   }
 }
