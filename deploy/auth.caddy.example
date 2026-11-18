@@ -1,0 +1,8 @@
+# Copy to deploy/auth.caddy and fill in. The app has no accounts of its own:
+# this password is what keeps a public address private.
+#
+# Generate the hash with:
+#   docker run --rm caddy:2-alpine caddy hash-password --plaintext 'my password'
+basic_auth {
+	thibault REPLACE_WITH_THE_HASH
+}

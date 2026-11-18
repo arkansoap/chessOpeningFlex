@@ -1,0 +1,37 @@
+# Public deployment: Caddy obtains the HTTPS certificate for SITE_ADDRESS and
+# asks for a password before anything is served. See docs/DEPLOY.md.
+#
+#   SITE_ADDRESS=chess.example.org docker compose -f docker-compose.prod.yml up -d --build
+services:
+  backend:
+    build: ./backend
+    volumes:
+      - ${DATA_PATH:-./data}:/data
+    environment:
+      - LICHESS_TOKEN=${LICHESS_TOKEN:-}
+    restart: unless-stopped
+
+  web:
+    build: ./frontend
+    environment:
+      - SITE_ADDRESS=${SITE_ADDRESS:?Set SITE_ADDRESS to the public domain name}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # No silent fallback: without the password file the stack must not start.
+      - type: bind
+        source: ./deploy/auth.caddy
+        target: /etc/caddy/auth.caddy
+        read_only: true
+        bind:
+          create_host_path: false
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

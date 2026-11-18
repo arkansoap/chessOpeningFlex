@@ -1,0 +1,30 @@
+# SITE_ADDRESS is ":80" behind another proxy or on a home network, or a domain
+# name ("chess.example.org") for Caddy to obtain an HTTPS certificate itself.
+{$SITE_ADDRESS::80} {
+	encode zstd gzip
+
+	# Optional HTTP basic auth: mount a file named auth.caddy next to this one
+	# (see deploy/auth.caddy.example). Nothing is imported when it is absent.
+	import /etc/caddy/auth.caddy*
+
+	header {
+		# Cross-origin isolation, required by the multi-threaded WASM engine.
+		Cross-Origin-Opener-Policy same-origin
+		Cross-Origin-Embedder-Policy require-corp
+	}
+
+	@backend path /api/* /health
+	handle @backend {
+		reverse_proxy {$BACKEND_ADDRESS:backend:8000}
+	}
+
+	handle {
+		root * /srv
+		# Hashed build files and the engine never change under the same name.
+		@immutable path /assets/* /stockfish/*
+		header @immutable Cache-Control "public, max-age=31536000, immutable"
+		# Client-side routes fall back to the app shell.
+		try_files {path} /index.html
+		file_server
+	}
+}

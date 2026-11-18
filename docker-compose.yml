@@ -1,19 +1,19 @@
+# Local or home-network use: http://localhost:8080 (or http://<this-machine>:8080
+# from a phone on the same network). For a public address with HTTPS, see
+# docker-compose.prod.yml and docs/DEPLOY.md.
 services:
   backend:
     build: ./backend
-    ports:
-      - "8000:8000"
     volumes:
-      - ./data:/app/../data
+      - ${DATA_PATH:-./data}:/data
     environment:
-      - DATABASE_URL=sqlite:////app/../data/chessopeningflex.db
-      - STOCKFISH_PATH=stockfish
+      - LICHESS_TOKEN=${LICHESS_TOKEN:-}
     restart: unless-stopped
 
-  frontend:
+  web:
     build: ./frontend
     ports:
-      - "5173:5173"
+      - "${WEB_PORT:-8080}:80"
     depends_on:
       - backend
     restart: unless-stopped

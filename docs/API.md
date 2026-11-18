@@ -1,98 +1,73 @@
 # API — ChessOpeningFlex
 
-Base URL : `/api/v1`. Toutes les réponses sont en JSON. Documentation interactive générée par FastAPI : `/docs` (Swagger) et `/redoc`.
+Base : `/api/v1`. Réponses en JSON. Le détail des paramètres et des schémas est dans la
+documentation interactive générée par FastAPI : `/docs` (Swagger) et `/redoc`.
 
-## Health
+## Paramètres communs
 
-### `GET /health`
-Retourne `{"status": "ok"}`.
+Les routes qui lisent mes parties acceptent les mêmes filtres en paramètres d'URL :
 
-## chess.com
+| Paramètre | Valeurs | Rôle |
+|---|---|---|
+| `color` | `white` \| `black` | Couleur que je jouais (obligatoire). |
+| `time_class` | `bullet,blitz,rapid,classical,daily` | Cadences, séparées par des virgules. |
+| `since`, `until` | `AAAA-MM-JJ` | Période. |
+| `min_elo`, `max_elo` | entier | Classement de l'adversaire. |
+| `platform` | `chesscom` \| `lichess` \| `pgn` | Origine des parties. |
 
-### `POST /api/v1/chesscom/import`
-Importe des parties depuis l'API publique chess.com.
+Une position se désigne par `line` (coups SAN depuis le départ, séparés par des espaces :
+`e4 e5 Nf3`) ou par `fen`.
 
-**Body :**
-```json
-{
-  "username": "hikaru",
-  "time_control": "rapid",
-  "start_date": "2024-01",
-  "end_date": "2024-06"
-}
-```
-Tous les champs sauf `username` sont optionnels. `time_control` : `rapid` | `blitz` | `bullet` | `daily`. Les dates sont au format `YYYY-MM`.
+## Parties
 
-**201** : tableau d'`ImportedGame`.
+| Route | Rôle |
+|---|---|
+| `GET /accounts` · `PUT /accounts` | Mes noms d'utilisateur chess.com et Lichess. En changer un relance sa synchro de zéro. |
+| `POST /sync` | Lance la synchronisation en tâche de fond. Corps : `{"platforms": [...], "months": 12}` (les deux facultatifs ; `months` borne le premier import). |
+| `GET /sync/status` · `POST /sync/stop` | État de la tâche ; arrêt après l'étape en cours. |
+| `GET /games/summary` | Nombre de parties par origine et par couleur. |
+| `GET /games` | Parties récentes (`color`, `limit`). |
+| `POST /games/upload-pgn` | Import d'un PGN envoyé tel quel dans le corps. `?player=` : mon nom dans le fichier. |
 
-### `POST /api/v1/chesscom/upload-pgn`
-Upload d'un PGN brut (texte/plain). Le body est le contenu PGN (plusieurs parties acceptées).
+## Arbre de mes parties
 
-**201** : tableau d'`ImportedGame`.
+| Route | Rôle |
+|---|---|
+| `GET /explorer/position` | Tout ce qui est connu d'une position : coups joués avec gains / nulles / défaites, évaluations, coup de répertoire, réponses couvertes, parties récentes. |
+| `GET /explorer/openings` | Mes résultats par ouverture, regroupés par famille. |
+| `GET /explorer/lichess` | Coups joués sur Lichess autour de `rating`. Répond `{"available": false}` sans `LICHESS_TOKEN`. |
 
 ## Analyse
 
-### `POST /api/v1/analysis/variants`
-Extrait la ligne principale d'un PGN.
-
-**Body :**
-```json
-{ "pgn": "...", "color": "white", "min_depth": 0 }
-```
-
-**200** : tableau de `{ moves, starting_position, eco_code }`.
-
-### `POST /api/v1/analysis/evaluate`
-Évalue une position FEN avec Stockfish. Retourne `503` si le moteur n'est pas disponible.
-
-**Body :** `{ "fen": "...", "depth": 15 }`
-**200** : `{ fen, score, depth, best_move, mate }` (`score` en centipions, POV blancs).
+| Route | Rôle |
+|---|---|
+| `GET /analysis/status` | Moteur disponible ou non, positions à analyser, état de la tâche. |
+| `POST /analysis/run` · `POST /analysis/stop` | Analyse en lot des positions atteintes au moins `min_games` fois. `503` sans moteur. |
+| `POST /analysis/evaluate` | Évaluation d'une position (mise en cache), du point de vue des blancs. |
+| `GET /leaks` | Mes fuites : `min_games` (défaut 2), `min_loss` en points d'espérance de gain (défaut 5), `limit`. |
 
 ## Répertoire
 
-### `GET /api/v1/repertoire`
-Liste tous les répertoires.
-
-### `POST /api/v1/repertoire`
-Crée un répertoire. **Body :** `{ "name": "...", "color": "white|black", "description": "...", "is_active": true }`
-
-### `GET /api/v1/repertoire/{id}`
-Récupère un répertoire + ses lignes.
-
-### `PUT /api/v1/repertoire/{id}`
-Met à jour un répertoire (champs optionnels : `name`, `description`, `is_active`).
-
-### `DELETE /api/v1/repertoire/{id}` → 204
-
-### `POST /api/v1/repertoire/line`
-Ajoute une ligne. **Body :** `{ "repertoire_id": "...", "moves": "e4 e5 Nf3", "starting_position": "startpos", "depth": 3, "priority": 0, "comment": "..." }`
-
-### `PUT /api/v1/repertoire/line/{id}`
-Met à jour une ligne (`moves`, `comment`, `depth`, `priority`, `last_reviewed`).
-
-### `DELETE /api/v1/repertoire/line/{id}` → 204
+| Route | Rôle |
+|---|---|
+| `GET /repertoire/{color}` | Résumé et liste des coups. |
+| `PUT /repertoire/{color}/entry` | Choisit ou remplace mon coup dans une position : `{"line": "e4 e5", "move": "Nf3"}`. `400` si ce n'est pas à moi de jouer. |
+| `PATCH /repertoire/entry/{id}` | Modifie la note d'un coup. |
+| `DELETE /repertoire/entry/{id}` | Retire un coup. |
+| `GET /repertoire/coverage` | Trous et écarts, agrégés sur mes parties (filtres communs). |
+| `GET /repertoire/{color}/review` | Mes dernières parties, chacune avec l'endroit où elle quitte le répertoire. |
+| `POST /repertoire/adopt` | Brouillon tiré de mes parties. `dry_run` (défaut `true`) ne fait que proposer. |
+| `GET /repertoire/{color}/export.pgn` | Export en une partie avec variantes. |
+| `POST /repertoire/{color}/import-pgn` | Import d'un PGN envoyé dans le corps. `?overwrite=true` remplace mes coups existants. |
 
 ## Entraînement
 
-### `POST /api/v1/training/session`
-Enregistre une session terminée et met à jour les statistiques de mémorisation.
+| Route | Rôle |
+|---|---|
+| `GET /training/next` | Prochaine question. `color` (`white`, `black`, `any`), `mode` (`due`, `all`), `exclude` (coup à ne pas reposer tout de suite). |
+| `POST /training/answer` | Vérifie une réponse et replanifie le coup : `{"entry_id": "...", "move": "Nf3"}` ou `{"reveal": true}`. |
+| `GET /training/stats` | Réponses par jour et état de chaque répertoire. |
 
-**Query params :** `repertoire_id`, `line_id`, `mode` (`random`|`sequential`|`full_variation`), `total_questions`, `correct_answers`, `time_spent?`, `score?`
+## Santé
 
-### `GET /api/v1/training/question`
-Génère une question d'entraînement pour une ligne.
-
-**Query params :** `line_id`, `mode` (défaut `random`), `step` (défaut `0`, mode séquentiel).
-
-**200** : `{ line_id, fen, expected_move, move_number, color_to_move }`
-
-### `POST /api/v1/training/answer`
-Vérifie une réponse. **Body :** `{ "line_id": "...", "move_played": "e4", "expected_move": "e4", "fen": "..." }`
-**200** : `{ is_correct, expected_move, move_played }`
-
-### `GET /api/v1/training/stats`
-Récupère les statistiques de mémorisation.
-
-**Query params :** `repertoire_id` **ou** `line_id` (au moins un requis).
-
-**200** : tableau de `MemorizationStat`.
+`GET /health` (hors préfixe) répond `{"status": "ok"}`.
